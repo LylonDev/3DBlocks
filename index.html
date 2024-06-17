@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>3d Blocks</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
+        <script src="https://cdn.babylonjs.com/recast.js"></script>
+        <script src="https://cdn.babylonjs.com/ammo.js"></script>
+        <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+        <script src="https://cdn.babylonjs.com/cannon.js"></script>
+        <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+        <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #container {
+                display: flex;
+                height: 100%;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                max-height: 40%;
+                touch-action: none;
+            }
+            
+            #blockContainer {
+                width: 50%;
+                height: 100%;
+                flex: 2;
+            }
+            #canvasZone {
+                width: 100%;
+                height: 100%;
+                flex: 2;
+            }
+
+            #buttons {
+                position: relative;
+            }
+
+            #meshes {
+                border: 1px solid black;
+                height: 60%;
+            }
+
+            #addMeshButton {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background-color: rgb(63, 158, 130);
+                border-radius: 100%;
+                color: white;
+                padding: 0.65em;
+                padding-top: 0.35em;
+                padding-bottom: 0.35em;
+                font-size: 1.24em;
+                font-weight: bold;
+                box-shadow: 0px 1px 8px 1px #ddd;
+            }
+
+            #addMeshOptions {
+                position: absolute;
+                bottom: 10px;
+                right: 50px;
+                width: 50px;
+                height: 2em;
+                background-color: rgb(63, 158, 130);
+                border-radius: 3pt;
+                bottom: 13px;
+                right: 30px;
+                display: flex;
+                align-items: center;
+                padding-left: 1em;
+                color: white;
+                display: none;
+            }
+
+            #addMeshOptions.show {
+                display: block!important;
+            }
+
+            .sphere {
+                width: 100px;
+                height: 100px;
+                border-radius: 100%;
+                background-color: darkgrey;
+            }
+        </style>
+    </head>
+<body>
+    <div id="container">
+        <div id="blockContainer">
+            hello
+        </div>
+        <div id="canvasZone">
+            <div id="buttons">
+                <button id="start">Start</button>
+                <button id="stop">Stop</button>
+            </div>
+            <canvas id="renderCanvas"></canvas>
+            <div id="meshes">
+                Meshes
+                <div id="meshList">
+
+                </div>
+                <div id="addMeshOptions">
+                    <div id="addCircleButton">○</div>
+                </div>
+                <div id="addMeshButton">
+                    +
+                </div>
+            </div>
+        </div>
+       
+    </div>
+    
+    <script>
+        const addMeshButton = document.getElementById('addMeshButton');
+        let isOpen = false;
+        addMeshButton.addEventListener('click', () => {
+            if(!isOpen) {
+                document.getElementById('addMeshOptions').classList.add('show');
+                addMeshButton.innerText = 'x';
+                isOpen = true;
+            }
+            else {
+                document.getElementById('addMeshOptions').classList.remove('show');
+                addMeshButton.innerText = '+';
+                isOpen = false;
+            }
+        });
+
+        
+        
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        var createScene = function () {
+    // This creates a basic Babylon Scene object (non-mesh)
+    var scene = new BABYLON.Scene(engine);
+
+    // This creates and positions a free camera (non-mesh)
+    var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+
+    // This targets the camera to scene origin
+    camera.setTarget(BABYLON.Vector3.Zero());
+
+    // This attaches the camera to the canvas
+    camera.attachControl(canvas, true);
+
+    // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+    // Default intensity is 1. Let's dim the light a small amount
+    light.intensity = 0.7;
+
+    // Our built-in 'sphere' shape.
+
+
+    // Our built-in 'ground' shape.
+    var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
+
+    return scene;
+};
+                window.initFunction = async function() {
+                    
+                    
+                    
+                    var asyncEngineCreation = async function() {
+                        try {
+                        return createDefaultEngine();
+                        } catch(e) {
+                        console.log("the available createEngine function failed. Creating the default engine instead");
+                        return createDefaultEngine();
+                        }
+                    }
+
+                    window.engine = await asyncEngineCreation();
+        if (!engine) throw 'engine should not be null.';
+        startRenderLoop(engine, canvas);
+        window.scene = createScene();};
+        initFunction().then(() => {sceneToRender = scene                    
+        });
+
+        const meshes = [];
+        document.getElementById('addCircleButton').addEventListener('click', () => {
+            const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 2, segments: 32}, scene);
+            
+            meshes.push({type: 'sphere', mesh: sphere});
+            // Move the sphere upward 1/2 its height
+            sphere.position.y = 1;
+            updateMeshList();
+            startRenderLoop(engine, canvas);
+        });
+        
+        function updateMeshList() {
+            document.getElementById('meshList').innerHTML = ''
+            meshes.forEach(mesh => {
+                switch(mesh.type) {
+                    case 'sphere': 
+                        const element = document.createElement('div');
+                        element.className = 'sphere';
+                        document.getElementById('meshList').appendChild(element);
+                }
+            })
+            
+        }
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
